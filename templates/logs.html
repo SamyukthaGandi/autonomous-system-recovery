@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>System Logs</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #e3f2fd, #fce4ec);
+      margin: 0;
+      padding: 2rem;
+      color: #333;
+      scroll-behavior: smooth;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 2rem;
+    }
+
+    .log-container {
+      background-color: #ffffff;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      max-width: 900px;
+      margin: auto;
+      overflow-y: auto;
+      max-height: 600px;
+    }
+
+    .log-entry {
+      display: flex;
+      align-items: center;
+      border-left: 5px solid #42a5f5;
+      background-color: #f7f9fb;
+      padding: 1rem;
+      margin: 0.5rem 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      transition: transform 0.2s;
+    }
+
+    .log-entry:hover {
+      transform: scale(1.01);
+    }
+
+    .log-icon {
+      margin-right: 1rem;
+      font-size: 1.5rem;
+      color: #42a5f5;
+    }
+
+    .log-text {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.95rem;
+      word-break: break-word;
+    }
+
+    .action-bar {
+      text-align: center;
+      margin-top: 30px;
+    }
+
+    .clear-btn {
+      background-color: #ff5252;
+      color: white;
+      padding: 10px 20px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 15px;
+      transition: background-color 0.3s ease;
+    }
+
+    .clear-btn:hover {
+      background-color: #e53935;
+    }
+
+    #clear-status {
+      font-weight: bold;
+      color: green;
+      margin-top: 10px;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-top: 20px;
+      color: #007bff;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+<h1>📜 System Logs</h1>
+
+<div class="log-container">
+  {% for line in logs %}
+  <div class="log-entry">
+    <span class="log-icon">📝</span>
+    <span class="log-text">{{ line }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="action-bar">
+  <button class="clear-btn" onclick="clearLogs()">🧹 Clear Logs</button>
+  <p id="clear-status"></p>
+  <a href="/" class="back-link">← Back to Dashboard</a>
+</div>
+
+<!-- ✅ Auto-refresh logs every 5 seconds -->
+<script>
+  setInterval(() => {
+    fetch("/logs")
+            .then(response => response.text())
+            .then(html => document.documentElement.innerHTML = html);
+  }, 5000);
+
+  function clearLogs() {
+    fetch("/clear_logs")
+            .then(res => res.text())
+            .then(data => {
+              document.getElementById("clear-status").innerText = data;
+            });
+  }
+</script>
+</body>
+</html>

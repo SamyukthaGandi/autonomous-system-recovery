@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomous System Recovery - Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-normal { background-color: #4ade80; }
+        .status-warning { background-color: #facc15; animation: pulse-yellow 1s infinite; }
+        .status-critical { background-color: #ef4444; animation: pulse-red 0.5s infinite; }
+        
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes pulse-yellow { 0%, 100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7); } 50% { box-shadow: 0 0 0 10px rgba(250, 204, 21, 0); } }
+        @keyframes pulse-red { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .metric-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .metric-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #facc15, #ef4444);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .anomaly-score {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+        
+        .anomaly-details {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.9em;
+        }
+        
+        .recovery-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-top: 10px;
+            font-size: 0.85em;
+        }
+        
+        .recovery-0 { background: #4ade80; color: #000; }
+        .recovery-1 { background: #facc15; color: #000; }
+        .recovery-2 { background: #f97316; color: #fff; }
+        .recovery-3 { background: #ef4444; color: #fff; }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+        
+        .anomalies-list {
+            list-style: none;
+        }
+        
+        .anomalies-list li {
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(0, 0, 0, 0.2);
+            border-left: 4px solid #facc15;
+            border-radius: 4px;
+        }
+        
+        .top-processes {
+            margin-top: 20px;
+        }
+        
+        .process-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9em;
+        }
+        
+        .process-item:last-child {
+            border-bottom: none;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 15px;
+            width: 100%;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .button-group button {
+            margin: 0;
+        }
+        
+        .recovery-history {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .history-item {
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-left: 4px solid #667eea;
+            margin: 8px 0;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+        
+        .history-time {
+            opacity: 0.7;
+        }
+        
+        .footer {
+            text-align: center;
+            opacity: 0.6;
+            margin-top: 40px;
+            font-size: 0.9em;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .tab-button {
+            background: none;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            width: auto;
+            margin: 0;
+        }
+
+        .tab-button.active {
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>
+                <span class="status-indicator" id="statusIndicator"></span>
+                Autonomous System Recovery
+            </h1>
+            <p>Real-time AI/ML Anomaly Detection & Recovery</p>
+        </header>
+
+        <div class="grid">
+            <!-- System Metrics -->
+            <div class="card metric-card">
+                <div>
+                    <div class="metric-value" id="cpuValue">--</div>
+                    <div class="metric-label">CPU Usage</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="cpuBar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card metric-card">
+                <div>
+                    <div class="metric-value" id="memValue">--</div>
+                    <div class="metric-label">Memory Usage</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="memBar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card metric-card">
+                <div>
+                    <div class="metric-value" id="diskValue">--</div>
+                    <div class="metric-label">Disk Usage</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="diskBar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Anomaly Detection -->
+            <div class="card">
+                <h3>🤖 ML Anomaly Detection</h3>
+                <div class="anomaly-score" id="anomalyScore">0.00</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="anomalyBar" style="width: 0%"></div>
+                </div>
+                <div id="recoveryBadge" class="recovery-badge recovery-0">Normal</div>
+                <div class="anomaly-details">
+                    <p>Status: <span id="detectionStatus">Monitoring</span></p>
+                    <p>Last Triggered: <span id="lastTriggered">Never</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="grid">
+            <div class="card">
+                <h3>CPU Trends</h3>
+                <div class="chart-container">
+                    <canvas id="cpuChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Memory Trends</h3>
+                <div class="chart-container">
+                    <canvas id="memChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="card">
+            <div class="tabs">
+                <button class="tab-button active" onclick="switchTab('anomalies')">Current Status</button>
+                <button class="tab-button" onclick="switchTab('processes')">Top Processes</button>
+                <button class="tab-button" onclick="switchTab('recovery')">Recovery History</button>
+            </div>
+
+            <div id="anomalies" class="tab-content active">
+                <h3>⚠️ System Alerts</h3>
+                <ul class="anomalies-list" id="anomaliesList">
+                    <li>Loading...</li>
+                </ul>
+            </div>
+
+            <div id="processes" class="tab-content">
+                <h3>🔝 Top Memory Consumers</h3>
+                <div class="top-processes" id="topProcesses">
+                    <p>Loading...</p>
+                </div>
+            </div>
+
+            <div id="recovery" class="tab-content">
+                <h3>🔧 Recovery Actions Log</h3>
+                <div class="recovery-history" id="recoveryHistory">
+                    <p>No recovery actions yet</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="grid">
+            <div class="card">
+                <h3>Manual Controls</h3>
+                <div class="button-group">
+                    <button onclick="triggerRecovery(1)">Gentle Recovery</button>
+                    <button onclick="triggerRecovery(2)">Moderate Recovery</button>
+                    <button onclick="triggerRecovery(3)">Aggressive Recovery</button>
+                </div>
+                <button onclick="clearLogs()">Clear Logs</button>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Autonomous System Recovery Master | Powered by TensorFlow, Scikit-Learn & Flask</p>
+        </div>
+    </div>
+
+    <script>
+        let cpuChart, memChart;
+
+        async function updateDashboard() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+
+                // Update metrics
+                document.getElementById('cpuValue').textContent = data.metrics.cpu?.toFixed(1) || '--';
+                document.getElementById('memValue').textContent = data.metrics.memory?.toFixed(1) || '--';
+                document.getElementById('diskValue').textContent = data.metrics.disk?.toFixed(1) || '--';
+
+                document.getElementById('cpuBar').style.width = (data.metrics.cpu || 0) + '%';
+                document.getElementById('memBar').style.width = (data.metrics.memory || 0) + '%';
+                document.getElementById('diskBar').style.width = (data.metrics.disk || 0) + '%';
+
+                // Update anomaly score
+                const score = data.anomaly_score || 0;
+                document.getElementById('anomalyScore').textContent = score.toFixed(4);
+                document.getElementById('anomalyBar').style.width = (score * 100) + '%';
+
+                // Update recovery badge
+                const level = data.recovery_level || 0;
+                const badge = document.getElementById('recoveryBadge');
+                const levelNames = ['Normal', 'Gentle', 'Moderate', 'Aggressive'];
+                badge.textContent = levelNames[level];
+                badge.className = `recovery-badge recovery-${level}`;
+
+                // Update status indicator
+                const indicator = document.getElementById('statusIndicator');
+                indicator.className = 'status-indicator ';
+                if (level === 0) indicator.classList.add('status-normal');
+                else if (level <= 1) indicator.classList.add('status-warning');
+                else indicator.classList.add('status-critical');
+
+                // Update detection status
+                document.getElementById('detectionStatus').textContent = data.status;
+                document.getElementById('lastTriggered').textContent = data.last_triggered;
+
+                // Update top processes
+                if (data.metrics.top_processes) {
+                    const processesList = data.metrics.top_processes.map(p =>
+                        `<div class="process-item">
+                            <span>${p.name}</span>
+                            <span>${p.memory_percent.toFixed(1)}%</span>
+                        </div>`
+                    ).join('');
+                    document.getElementById('topProcesses').innerHTML = processesList;
+                }
+
+                // Update anomalies
+                const anomalies = await fetch('/api/status').then(r => r.json()).then(d => {
+                    const list = [];
+                    if (d.metrics.cpu > 80) list.push(`⚠️ High CPU Usage: ${d.metrics.cpu.toFixed(1)}%`);
+                    if (d.metrics.memory > 75) list.push(`⚠️ High Memory Usage: ${d.metrics.memory.toFixed(1)}%`);
+                    if (d.metrics.disk > 85) list.push(`⚠️ High Disk Usage: ${d.metrics.disk.toFixed(1)}%`);
+                    if (score > 0.7) list.push(`🤖 ML Anomaly Detected: ${score.toFixed(2)}`);
+                    return list.length > 0 ? list : ['✅ All systems normal'];
+                });
+
+                document.getElementById('anomaliesList').innerHTML = anomalies
+                    .map(a => `<li>${a}</li>`).join('');
+
+                // Update recovery history
+                const historyResponse = await fetch('/api/recovery-history');
+                const historyData = await historyResponse.json();
+                if (historyData.length > 0) {
+                    const history = historyData.slice(-10).reverse().map(item =>
+                        `<div class="history-item">
+                            <strong>${item.level_name} Recovery</strong>
+                            <div class="history-time">${new Date(item.timestamp).toLocaleString()}</div>
+                        </div>`
+                    ).join('');
+                    document.getElementById('recoveryHistory').innerHTML = history;
+                }
+
+                updateCharts();
+            } catch (error) {
+                console.error('Dashboard update error:', error);
+            }
+        }
+
+        async function updateCharts() {
+            try {
+                const response = await fetch('/api/metrics');
+                const metrics = await response.json();
+
+                const times = metrics.map(m => new Date(m.timestamp).toLocaleTimeString());
+                const cpuData = metrics.map(m => m.cpu);
+                const memData = metrics.map(m => m.memory);
+
+                if (!cpuChart) {
+                    cpuChart = new Chart(document.getElementById('cpuChart'), {
+                        type: 'line',
+                        data: {
+                            labels: times,
+                            datasets: [{
+                                label: 'CPU %',
+                                data: cpuData,
+                                borderColor: '#667eea',
+                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                tension: 0.3,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: { max: 100, beginAtZero: true, ticks: { color: '#fff' } },
+                                x: { ticks: { color: '#fff' } }
+                            }
+                        }
+                    });
+                } else {
+                    cpuChart.data.labels = times;
+                    cpuChart.data.datasets[0].data = cpuData;
+                    cpuChart.update();
+                }
+
+                if (!memChart) {
+                    memChart = new Chart(document.getElementById('memChart'), {
+                        type: 'line',
+                        data: {
+                            labels: times,
+                            datasets: [{
+                                label: 'Memory %',
+                                data: memData,
+                                borderColor: '#f97316',
+                                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                                tension: 0.3,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: { max: 100, beginAtZero: true, ticks: { color: '#fff' } },
+                                x: { ticks: { color: '#fff' } }
+                            }
+                        }
+                    });
+                } else {
+                    memChart.data.labels = times;
+                    memChart.data.datasets[0].data = memData;
+                    memChart.update();
+                }
+            } catch (error) {
+                console.error('Chart update error:', error);
+            }
+        }
+
+        async function triggerRecovery(level) {
+            try {
+                const response = await fetch('/api/manual-recover', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ level })
+                });
+                const data = await response.json();
+                alert(`Recovery Level ${level} triggered!\nFreed: ${data.freed_memory_mb.toFixed(1)} MB`);
+                updateDashboard();
+            } catch (error) {
+                console.error('Recovery trigger error:', error);
+            }
+        }
+
+        async function clearLogs() {
+            if (confirm('Clear all system logs?')) {
+                await fetch('/api/clear-logs', { method: 'POST' });
+                alert('Logs cleared!');
+            }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Update every 5 seconds
+        updateDashboard();
+        setInterval(updateDashboard, 5000);
+    </script>
+</body>
+</html>
